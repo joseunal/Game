@@ -18,6 +18,7 @@ Microsoft y Google Open Buildings, entre otros).
 from __future__ import annotations
 
 import collections
+import importlib.util
 import json
 import re
 import subprocess
@@ -30,6 +31,14 @@ ID_OSM = re.compile(r"^([wr])(\d+)")
 
 
 def descargar(zona_id: str, bbox: dict) -> Path:
+    if importlib.util.find_spec("overturemaps") is None:
+        raise SystemExit(
+            "Este Python no tiene overturemaps instalado:\n"
+            f"  {sys.executable}\n"
+            "Instálalo en ese mismo Python con:\n"
+            f'  & "{sys.executable}" -m pip install overturemaps\n'
+            "o corre el script con el Python donde ya lo instalaste."
+        )
     destino = osm.CRUDO / f"overture_{zona_id}.geojsonl"
     caja = f'{bbox["oeste"]},{bbox["sur"]},{bbox["este"]},{bbox["norte"]}'
     orden = [sys.executable, "-m", "overturemaps", "download", f"--bbox={caja}",
