@@ -57,3 +57,18 @@ rellenan, no hay relieve todavía y los techos son planos.
 Datos del mapa © colaboradores de OpenStreetMap, bajo licencia
 [ODbL](https://www.openstreetmap.org/copyright). La atribución se muestra
 también dentro de la demo.
+
+## Alturas de Overture Maps (experimental)
+
+OSM casi no trae alturas en Cartagena. Para probar
+[Overture Maps](https://overturemaps.org) como fuente adicional:
+
+```
+pip install overturemaps
+python herramientas/alturas_overture.py
+```
+
+Imprime un informe por zona (cuántos edificios traen altura y cuántas son
+nuevas respecto a OSM) y regenera `godot/datos/` usando esas alturas donde OSM
+no tenía. Orden de confianza: etiqueta de OSM, Overture, estimación, 2 pisos.
+Los edificios de Overture se publican bajo ODbL.

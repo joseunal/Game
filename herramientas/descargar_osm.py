@@ -154,8 +154,15 @@ ETIQUETAS_UTILES = (
 )
 
 
-def edificio(ident: str, pts: list, tags: dict, regla: dict | None = None) -> dict:
+def edificio(ident: str, pts: list, tags: dict, regla: dict | None = None,
+             externas: dict | None = None) -> dict:
     altura, pisos, fuente = altura_de(tags)
+    # Orden de confianza: etiqueta de OSM > Overture > estimación > 2 pisos.
+    externa = (externas or {}).get(ident.split("/")[0] + "/" + ident.split("/")[1])
+    if fuente == "defecto" and externa:
+        altura = externa.get("altura") or externa["pisos"] * ALTURA_PISO
+        pisos = int(externa.get("pisos") or max(1, round(altura / ALTURA_PISO)))
+        altura, fuente = round(altura, 1), "overture"
     if fuente == "defecto":
         estimados = pisos_estimados(ident, area(pts), regla)
         if estimados:
@@ -194,9 +201,18 @@ def unir_anillos(tramos: list) -> list:
     return anillos
 
 
+def alturas_externas(zona_id: str) -> dict:
+    """Alturas de Overture guardadas por alturas_overture.py, si existen."""
+    archivo = CRUDO / f"overture_alturas_{zona_id}.json"
+    if archivo.exists():
+        return json.loads(archivo.read_text(encoding="utf-8"))
+    return {}
+
+
 def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
     a_metros = proyector(origen)
     regla = zona.get("altura_estimada")
+    externas = alturas_externas(zona_id)
     edificios, calles = [], []
     for e in crudo["elements"]:
         tags = e.get("tags", {})
@@ -213,7 +229,7 @@ def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
             elif "building" in tags or "building:part" in tags:
                 pts = anillo(e["geometry"], a_metros)
                 if pts:
-                    edificios.append(edificio(f'way/{e["id"]}', pts, tags, regla))
+                    edificios.append(edificio(f'way/{e["id"]}', pts, tags, regla, externas))
         elif e["type"] == "relation":
             # Por ahora solo los contornos exteriores; los patios (inner) se rellenan.
             tramos = [
@@ -224,7 +240,7 @@ def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
             for n, cerrado in enumerate(unir_anillos(tramos)):
                 pts = anillo([{"lat": la, "lon": lo} for la, lo in cerrado], a_metros)
                 if pts:
-                    edificios.append(edificio(f'relation/{e["id"]}/{n}', pts, tags, regla))
+                    edificios.append(edificio(f'relation/{e["id"]}/{n}', pts, tags, regla, externas))
     b = zona["bbox"]
     return {
         "zona": zona_id,
@@ -262,11 +278,11 @@ def main() -> None:
         datos = procesar(crudo, zona_id, zona, config["origen"])
         destino = SALIDA / f"{zona_id}.json"
         destino.write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        cuenta = {"height": 0, "levels": 0, "estimada": 0, "defecto": 0}
+        cuenta = {"height": 0, "levels": 0, "overture": 0, "estimada": 0, "defecto": 0}
         for e in datos["edificios"]:
             cuenta[e["fuente_altura"]] += 1
         print(f"  {len(datos['edificios'])} edificios, {len(datos['calles'])} calles -> {destino.relative_to(RAIZ)}")
-        print(f"  alturas: {cuenta['height'] + cuenta['levels']} de OSM, "
+        print(f"  alturas: {cuenta['height'] + cuenta['levels']} de OSM, {cuenta['overture']} de Overture, "
               f"{cuenta['estimada']} estimadas, {cuenta['defecto']} con {PISOS_POR_DEFECTO} pisos por defecto")
 
 
