@@ -1,0 +1,7 @@
+# Godot
+godot/.godot/
+*.import
+# Python
+__pycache__/
+# Respuesta cruda de Overpass (se regenera con el script)
+herramientas/crudo/
