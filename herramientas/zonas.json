@@ -1,17 +1,27 @@
 {
-  "origen": {"lat": 10.4231, "lon": -75.5492, "nota": "Torre del Reloj; el (0,0) del mundo en Godot"},
+  "origen": {
+    "lat": 10.4231,
+    "lon": -75.5492,
+    "nota": "Torre del Reloj; el (0,0) del mundo en Godot"
+  },
   "zonas": {
     "centro": {
       "nombre": "Centro Histórico (Centro, San Diego y Getsemaní)",
-      "bbox": {"sur": 10.4175, "oeste": -75.5570, "norte": 10.4310, "este": -75.5430}
-    },
-    "castillo": {
-      "nombre": "Castillo de San Felipe de Barajas",
-      "bbox": {"sur": 10.4195, "oeste": -75.5430, "norte": 10.4260, "este": -75.5350}
+      "bbox": {
+        "sur": 10.4175,
+        "oeste": -75.557,
+        "norte": 10.431,
+        "este": -75.543
+      }
     },
     "bocagrande": {
-      "nombre": "Bocagrande",
-      "bbox": {"sur": 10.3930, "oeste": -75.5660, "norte": 10.4130, "este": -75.5470}
+      "nombre": "Bocagrande, El Laguito y Castillogrande",
+      "bbox": {
+        "sur": 10.386,
+        "oeste": -75.567,
+        "norte": 10.413,
+        "este": -75.536
+      }
     }
   }
 }
