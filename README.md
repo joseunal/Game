@@ -26,6 +26,7 @@ rápido, rueda del ratón cambia la velocidad.
 | Zona | Qué cubre |
 | --- | --- |
 | `centro` | Centro Histórico amurallado: Centro, San Diego y Getsemaní |
+| `castillo` | Castillo de San Felipe de Barajas y alrededores |
 | `bocagrande` | Bocagrande, El Laguito y Castillogrande |
 
 Todas comparten el mismo origen (la Torre del Reloj), así que quedan en su

@@ -14,6 +14,15 @@
         "este": -75.543
       }
     },
+    "castillo": {
+      "nombre": "Castillo de San Felipe de Barajas",
+      "bbox": {
+        "sur": 10.4195,
+        "oeste": -75.543,
+        "norte": 10.426,
+        "este": -75.535
+      }
+    },
     "bocagrande": {
       "nombre": "Bocagrande, El Laguito y Castillogrande",
       "bbox": {
