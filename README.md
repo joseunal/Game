@@ -28,6 +28,7 @@ rápido, rueda del ratón cambia la velocidad.
 | `centro` | Centro Histórico amurallado: Centro, San Diego y Getsemaní |
 | `castillo` | Castillo de San Felipe de Barajas y alrededores |
 | `bocagrande` | Bocagrande, El Laguito y Castillogrande |
+| `manga` | Isla de Manga |
 
 Todas comparten el mismo origen (la Torre del Reloj), así que quedan en su
 posición real unas respecto a otras. Para agregar o recortar una zona basta
@@ -37,7 +38,11 @@ editar su recuadro en `zonas.json` y volver a correr el script.
 
 - `herramientas/descargar_osm.py` consulta Overpass, proyecta las coordenadas a
   metros (x = este, z = sur) y calcula la altura de cada edificio: usa `height`
-  si existe, si no `building:levels` × 3,2 m, y si no 2 pisos por defecto.
+  si existe, si no `building:levels` × 3,2 m, y si no 2 pisos por defecto. En las zonas de torres (Bocagrande, Manga)
+  OSM casi nunca trae la altura, así que `altura_estimada` en `zonas.json`
+  inventa pisos creíbles para las huellas grandes; no son alturas reales.
+  Tras cambiar esa regla, `python herramientas/descargar_osm.py --sin-descargar`
+  regenera los datos sin volver a consultar OSM.
   Guarda también las etiquetas útiles para el futuro generador (material,
   techo, uso, nombre).
 - `godot/scripts/mundo.gd` lee esos JSON y construye una sola malla por zona

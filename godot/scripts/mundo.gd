@@ -17,6 +17,7 @@ const PALETA: Array[Color] = [
 var _total_edificios := 0
 var _total_calles := 0
 var _descartados := 0
+var _vistos := {}  # ids ya construidos: las zonas pueden solaparse
 
 
 func _ready() -> void:
@@ -69,6 +70,9 @@ func _construir_zona(datos: Dictionary) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for e in datos["edificios"]:
+		if _vistos.has(e["id"]):
+			continue
+		_vistos[e["id"]] = true
 		if _agregar_edificio(st, e):
 			_total_edificios += 1
 		else:
@@ -78,6 +82,9 @@ func _construir_zona(datos: Dictionary) -> void:
 	st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for c in datos["calles"]:
+		if _vistos.has(c["id"]):
+			continue
+		_vistos[c["id"]] = true
 		_agregar_calle(st, c)
 		_total_calles += 1
 	zona.add_child(_malla_con_color_de_vertice("Calles", st, 1.0))

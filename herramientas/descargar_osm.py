@@ -22,6 +22,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+import zlib
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -113,6 +114,26 @@ def altura_de(tags: dict) -> tuple[float, int, str]:
     return PISOS_POR_DEFECTO * ALTURA_PISO, PISOS_POR_DEFECTO, "defecto"
 
 
+def pisos_estimados(ident: str, area_m2: float, regla: dict | None) -> int | None:
+    """Inventa un número de pisos creíble cuando OSM no lo trae.
+
+    En barrios de torres (Bocagrande, Castillogrande, Manga) casi ningún
+    edificio tiene altura en OSM y todo quedaría de 2 pisos. La regla de la zona
+    (clave "altura_estimada" en zonas.json) dice desde qué área de huella un
+    edificio se trata como torre, qué proporción de esos lo es y entre cuántos
+    pisos. El resultado depende solo del id, así que no cambia entre corridas.
+    """
+    if not regla or area_m2 < regla["area_min"] or area_m2 > regla.get("area_max", 6000):
+        return None
+    azar = zlib.crc32(ident.encode()) / 0xFFFFFFFF
+    if azar > regla.get("proporcion", 1.0):
+        return None
+    minimo, maximo = regla["pisos"]
+    azar2 = zlib.crc32((ident + "/pisos").encode()) / 0xFFFFFFFF
+    # Al cuadrado: muchas torres medianas y pocas muy altas.
+    return int(round(minimo + (maximo - minimo) * azar2**2))
+
+
 def anillo(geometria: list, a_metros) -> list | None:
     """Convierte un anillo de OSM a metros, sin el punto de cierre repetido."""
     pts = [a_metros(p["lat"], p["lon"]) for p in geometria]
@@ -133,8 +154,12 @@ ETIQUETAS_UTILES = (
 )
 
 
-def edificio(ident: str, pts: list, tags: dict) -> dict:
+def edificio(ident: str, pts: list, tags: dict, regla: dict | None = None) -> dict:
     altura, pisos, fuente = altura_de(tags)
+    if fuente == "defecto":
+        estimados = pisos_estimados(ident, area(pts), regla)
+        if estimados:
+            altura, pisos, fuente = round(estimados * ALTURA_PISO, 1), estimados, "estimada"
     return {
         "id": ident,
         "huella": pts,
@@ -171,6 +196,7 @@ def unir_anillos(tramos: list) -> list:
 
 def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
     a_metros = proyector(origen)
+    regla = zona.get("altura_estimada")
     edificios, calles = [], []
     for e in crudo["elements"]:
         tags = e.get("tags", {})
@@ -187,7 +213,7 @@ def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
             elif "building" in tags or "building:part" in tags:
                 pts = anillo(e["geometry"], a_metros)
                 if pts:
-                    edificios.append(edificio(f'way/{e["id"]}', pts, tags))
+                    edificios.append(edificio(f'way/{e["id"]}', pts, tags, regla))
         elif e["type"] == "relation":
             # Por ahora solo los contornos exteriores; los patios (inner) se rellenan.
             tramos = [
@@ -198,7 +224,7 @@ def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
             for n, cerrado in enumerate(unir_anillos(tramos)):
                 pts = anillo([{"lat": la, "lon": lo} for la, lo in cerrado], a_metros)
                 if pts:
-                    edificios.append(edificio(f'relation/{e["id"]}/{n}', pts, tags))
+                    edificios.append(edificio(f'relation/{e["id"]}/{n}', pts, tags, regla))
     b = zona["bbox"]
     return {
         "zona": zona_id,
@@ -213,23 +239,35 @@ def procesar(crudo: dict, zona_id: str, zona: dict, origen: dict) -> dict:
 
 def main() -> None:
     config = json.loads(ZONAS.read_text(encoding="utf-8"))
-    pedidas = sys.argv[1:] or list(config["zonas"])
+    args = sys.argv[1:]
+    # --sin-descargar reutiliza la última respuesta guardada en herramientas/crudo/
+    # (útil para ajustar alturas en zonas.json sin volver a pedirle nada a OSM).
+    sin_descargar = "--sin-descargar" in args
+    pedidas = [a for a in args if not a.startswith("--")] or list(config["zonas"])
     SALIDA.mkdir(parents=True, exist_ok=True)
     CRUDO.mkdir(exist_ok=True)
     for zona_id in pedidas:
         if zona_id not in config["zonas"]:
             raise SystemExit(f"Zona desconocida: {zona_id}. Opciones: {', '.join(config['zonas'])}")
         zona = config["zonas"][zona_id]
-        print(f"{zona['nombre']}: descargando…")
-        crudo = descargar(zona["bbox"])
-        (CRUDO / f"{zona_id}.json").write_text(json.dumps(crudo), encoding="utf-8")
+        cache = CRUDO / f"{zona_id}.json"
+        if sin_descargar and cache.exists():
+            print(f"{zona['nombre']}: usando copia local")
+            crudo = json.loads(cache.read_text(encoding="utf-8"))
+        else:
+            print(f"{zona['nombre']}: descargando…")
+            crudo = descargar(zona["bbox"])
+            cache.write_text(json.dumps(crudo), encoding="utf-8")
+            time.sleep(2)  # cortesía con la API pública
         datos = procesar(crudo, zona_id, zona, config["origen"])
         destino = SALIDA / f"{zona_id}.json"
         destino.write_text(json.dumps(datos, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        con_altura = sum(1 for e in datos["edificios"] if e["fuente_altura"] != "defecto")
-        print(f"  {len(datos['edificios'])} edificios ({con_altura} con altura real), "
-              f"{len(datos['calles'])} calles -> {destino.relative_to(RAIZ)}")
-        time.sleep(2)  # cortesía con la API pública
+        cuenta = {"height": 0, "levels": 0, "estimada": 0, "defecto": 0}
+        for e in datos["edificios"]:
+            cuenta[e["fuente_altura"]] += 1
+        print(f"  {len(datos['edificios'])} edificios, {len(datos['calles'])} calles -> {destino.relative_to(RAIZ)}")
+        print(f"  alturas: {cuenta['height'] + cuenta['levels']} de OSM, "
+              f"{cuenta['estimada']} estimadas, {cuenta['defecto']} con {PISOS_POR_DEFECTO} pisos por defecto")
 
 
 if __name__ == "__main__":

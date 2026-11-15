@@ -30,6 +30,31 @@
         "oeste": -75.567,
         "norte": 10.413,
         "este": -75.536
+      },
+      "altura_estimada": {
+        "area_min": 250,
+        "pisos": [
+          8,
+          35
+        ],
+        "proporcion": 0.85
+      }
+    },
+    "manga": {
+      "nombre": "Manga",
+      "bbox": {
+        "sur": 10.402,
+        "oeste": -75.5465,
+        "norte": 10.4185,
+        "este": -75.527
+      },
+      "altura_estimada": {
+        "area_min": 350,
+        "pisos": [
+          6,
+          25
+        ],
+        "proporcion": 0.5
       }
     }
   }
